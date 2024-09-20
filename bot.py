@@ -1,5 +1,6 @@
 import logging
 import math
+import os
 
 import numpy as np
 
@@ -13,7 +14,10 @@ from ...linear_math import Transform
 
 MAX_ACCELERATION = 5.0 / 3.0
 MAX_DECELERATION = -MAX_ACCELERATION
-MAX_CORNER_SPEED = 130
+MIN_SPEED = 150
+
+if os.getenv('LOG'):
+    logging.basicConfig(level='INFO')
 
 
 class MinVerstappen(Bot):
@@ -46,22 +50,33 @@ class MinVerstappen(Bot):
 
         targets = get_lines()
         wp_distances = np.array([x.distance_to(y) for (x, y) in pairwise([pos] + targets)])
+        wp_cum_distances = wp_distances.cumsum()
 
         wp_angles = np.array([
             turn_angle((prev_wp_pos - cur_wp_pos).angle_to(next_wp_pos - cur_wp_pos))
             for prev_wp_pos, cur_wp_pos, next_wp_pos in
             zip([pos] + get_lines(), get_lines(), get_lines(1))
         ])
+        logging.info(f'Waypoint angle: {wp_angles[0]:.2f}')
 
-        sharp_wp = np.where(abs(wp_angles) > 40)[0][0]
-        sharp_wp_distance = wp_distances[:(sharp_wp + 1)].sum()
-        logging.info(f'Sharp turn is {sharp_wp} waypoints away (distance {sharp_wp_distance:.2f})')
+        wp_speeds = [max_corner_speed(a) for a in wp_angles]
+        max_speeds = [max_velocity(d, s) for d, s in zip(wp_cum_distances, wp_speeds)]
+
+        if any(wp_angles > 40):
+            sharp_wp = np.where(abs(wp_angles) > 40)[0][0]
+            sharp_wp_angle = wp_angles[sharp_wp]
+            sharp_wp_distance = wp_distances[:(sharp_wp + 1)].sum()
+            # logging.info(f'Sharp turn is {sharp_wp} waypoints away (distance {sharp_wp_distance:.2f})')
+        else:
+            sharp_wp_angle = 0
+            sharp_wp_distance = 0
+
 
         rel_target = position.inverse() * next_target
         angle = rel_target.as_polar()[1]
 
-        target_velocity = math.sqrt((MAX_CORNER_SPEED / 60) ** 2 - 2 * MAX_DECELERATION / 60 * sharp_wp_distance) * 60
-        logging.info(f'Target_velocity: {target_velocity:.2f}')
+        target_velocity = min(max_speeds)
+        logging.info(f'Target velocity: {target_velocity:.2f}')
         if speed < target_velocity:
             throttle = 1
         else:
@@ -81,4 +96,18 @@ class MinVerstappen(Bot):
 
 def turn_angle(angle: float) -> float:
     """ 0 = straight line, 180 = reverse"""
-    return abs(180 - angle)
+    return abs(180 - abs(angle))
+
+
+def max_velocity(distance: float, desire_speed: float) -> float:
+    return 60 * math.sqrt(
+        (desire_speed / 60) ** 2 - 2 * MAX_DECELERATION / 60 * max(0.0, distance - 20)
+    )
+
+
+def max_corner_speed(angle: float) -> float:
+    return float(np.interp(
+        x=angle,
+        xp=[0, 10, 20, 50, 70, 90, 180],
+        fp=[1000, 500, 260, MIN_SPEED, MIN_SPEED, MIN_SPEED, MIN_SPEED]
+    ))
