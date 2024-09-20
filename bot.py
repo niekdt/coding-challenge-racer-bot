@@ -108,6 +108,6 @@ def max_velocity(distance: float, desire_speed: float) -> float:
 def max_corner_speed(angle: float) -> float:
     return float(np.interp(
         x=angle,
-        xp=[0, 10, 20, 50, 70, 90, 180],
-        fp=[1000, 500, 260, MIN_SPEED, MIN_SPEED, MIN_SPEED, MIN_SPEED]
+        xp=[0, 10, 15, 20, 50, 70, 90, 180],
+        fp=[1000, 550, 500, 260, MIN_SPEED, MIN_SPEED, MIN_SPEED, MIN_SPEED]
     ))
