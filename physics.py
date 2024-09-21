@@ -1,9 +1,11 @@
 from functools import partial
 from math import pi, sin, tan, radians, isclose
 
+import numpy as np
 from pygame import Vector2
 
-from linear_math import Rotation, Transform
+from .util import copy_rot, eval_1d, eval_2d
+from ...linear_math import Rotation, Transform
 
 # constants
 max_throttle = 100
@@ -11,7 +13,6 @@ max_steering_speed = 3
 slipping_acceleration = 200
 slipping_ratio = 0.6
 dt = 1.0 / 60
-
 
 def update(position: Transform, velocity: Vector2, throttle: float, steering_command: float):
     acceleration = position.M * Vector2(throttle * max_throttle, 0)
@@ -21,7 +22,6 @@ def update(position: Transform, velocity: Vector2, throttle: float, steering_com
     if sideways_velocity.length_squared() > 0.001:
         # slow down the car in sideways direction
         acceleration -= sideways_velocity.normalize() * slipping_acceleration
-
 
     # rotate velocity partially
     # steering_angle = .02
@@ -40,29 +40,18 @@ def update(position: Transform, velocity: Vector2, throttle: float, steering_com
     return new_position, velocity
 
 
-def delta_velocity(velocity: Vector2, rot: Rotation = None) -> Vector2:
+def update_velocity(velocity: Vector2, rot: Rotation = None) -> Vector2:
     position = Transform(M=copy_rot(rot), p=Vector2(0, 0))
     new_position, new_velocity = update(position, velocity, 1, 1)
     return new_velocity
 
 
-def max_turning_angle_vec(velocity: Vector2, rot: Rotation = None) -> float:
-    position = Transform(M=copy_rot(rot), p=Vector2(0, 0))
-
-    new_position, new_velocity = update(position, velocity, 1, 1)
-
-    angle_p = radians(position.p.angle_to(new_position.p))
-    angle_v = radians(velocity.angle_to(new_velocity))
-
-    print(f'Angle P: {angle_p:.3f}, Angle V: {angle_v:.3f}')
-
-    return angle_v #, new_velocity.length() - velocity.length(), side_velocity.length()
-
-
 def max_turning_angle(speed: float, drift_angle: float = 0) -> float:
     velocity = Vector2.from_polar((speed, 0))
     rot = Rotation.fromangle(radians(-drift_angle))
-    return max_turning_angle_vec(velocity, rot)
+    new_velocity = update_velocity(velocity, rot)
+    angle = radians(velocity.angle_to(new_velocity))
+    return angle
 
 
 def max_speed(radius: float, steer_angle: float = .02) -> float:
@@ -79,50 +68,9 @@ def radius_from_turn_angle(angle: float, track_width: float) -> float:
     return r + track_width / 2
 
 
-from typing import Callable
-
-import numpy as np
-
-from linear_math import Rotation
-
-def eval_1d(fun: Callable, x_values, x_label: str = 'x', y_label: str = 'y'):
-    import pandas as pd
-    y_values = [fun(x) for x in x_values]
-    return pd.concat([
-        pd.Series(list(x_values), name=x_label),
-        pd.Series(y_values, name=y_label)
-    ], axis=1)
-
-
-def eval_2d(
-    fun: Callable,
-    x_values, y_values,
-    x_label: str = 'x', y_label: str = 'y', z_label: str = 'z'
-):
-    import pandas as pd
-    xx, yy = np.meshgrid(x_values, y_values)
-    f = np.vectorize(fun)
-    zz = f(xx, yy)
-
-    df = pd.DataFrame({
-        'x': xx.flatten(),
-        'y': yy.flatten(),
-        'z': zz.flatten()
-    })
-
-    return df.rename(columns={'x': x_label, 'y': y_label, 'z': z_label})
-
-
-def copy_rot(rot: Rotation) -> Rotation:
-    if rot is None:
-        return Rotation.fromangle(0)
-    else:
-        return Rotation(rot.rows[0].x, rot.rows[1].x, rot.rows[0].y, rot.rows[1].y)
-
-
-
 if __name__ == '__main__':
     import pandas as pd
+
     pd.options.display.width = None
     pd.options.display.max_rows = None
     # for r in [5, 10, 20, 50, 100]:
@@ -142,6 +90,7 @@ if __name__ == '__main__':
     import seaborn as sns
     import matplotlib.pyplot as plt
     import pandas as pd
+
     sns.set()
 
     # max angle from speed (no drifting)
@@ -152,14 +101,14 @@ if __name__ == '__main__':
 
     # max angle from drift angle (for given speed)
     angle_drift_data = eval_1d(
-        lambda x: max_turning_angle(speed=500, drift_angle=x), np.linspace(0, 180, 1000), 'drift_angle', 'angle')
+        lambda x: max_turning_angle(speed=500, drift_angle=x), np.linspace(0, 360, 1000),
+        'drift_angle', 'angle')
     print(angle_drift_data)
 
     print(angle_drift_data.nlargest(n=1, columns='angle'))
 
     sns.lineplot(angle_drift_data, x='drift_angle', y='angle')
     plt.show()
-
 
     # max speed from radius
     speed_data = eval_1d(
@@ -188,7 +137,7 @@ if __name__ == '__main__':
         max_turning_angle,
         np.linspace(100, 1000, 10),
         range(0, 360, 10),
-        'speed', 'drift_angle','angle')
+        'speed', 'drift_angle', 'angle')
 
     # sns.heatmap(angle_drift_data.pivot(index='speed', columns='drift_angle', values='angle'), annot=False, cmap='viridis')
 

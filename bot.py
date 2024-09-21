@@ -23,11 +23,9 @@ MAX_DECELERATION = -MAX_ACCELERATION
 MIN_SPEED = 150
 DEBUG = False
 
-
 if os.getenv('DEBUG'):
     DEBUG = True
     logging.basicConfig(level='INFO')
-
 
 class MinVerstappen(Bot):
     def __init__(self, track: Track):
@@ -38,22 +36,28 @@ class MinVerstappen(Bot):
         self.target = Vector2()
         self.prev_speed = 0
 
+
     @property
     def name(self):
         return "Min Verstappen"
+
 
     @property
     def contributor(self):
         return "Niek"
 
+
     @property
     def color(self) -> Color:
         return Color('#FF4F00')
+
 
     def compute_commands(self, next_waypoint: int, position: Transform, velocity: Vector2) -> Tuple:
         def get_lines(offset=0, limit=20):
             start = (next_waypoint + offset) % len(self.track.lines)
             return list(islice(cycle(self.track.lines), start, start + limit))
+
+
         pos = position.p
         speed = velocity.length()
         acc = speed - self.prev_speed  # t = 1
@@ -63,16 +67,18 @@ class MinVerstappen(Bot):
         target_angle = turn_angle(waypoint_angle(target, pos, targets[1]))
 
         logging.info(f'NEXT WAYPOINT: {next_waypoint} (distance = {target_distance:.2f})')
-        logging.info(f'Speed: {speed:.2f}, acceleration: {acc:.2f}, waypoint angle: {target_angle:.2f}')
+        logging.info(
+            f'Speed: {speed:.2f}, acceleration: {acc:.2f}, waypoint angle: {target_angle:.2f}')
 
         wp_distances = np.array([x.distance_to(y) for (x, y) in pairwise([pos] + targets)])
         wp_cum_distances = wp_distances.cumsum()
 
-        wp_angles = np.array([
-            turn_angle(waypoint_angle(cur_pos, prev_pos, next_pos))
-            for prev_pos, cur_pos, next_pos in
-            zip([pos] + get_lines(), get_lines(), get_lines(1))
-        ])
+        wp_angles = np.array(
+            [
+                turn_angle(waypoint_angle(cur_pos, prev_pos, next_pos))
+                for prev_pos, cur_pos, next_pos in
+                zip([pos] + get_lines(), get_lines(), get_lines(1))
+            ])
 
         wp_radii = [radius_from_turn_angle(180 - a, self.track.track_width) for a in wp_angles]
 
@@ -106,6 +112,7 @@ class MinVerstappen(Bot):
         else:
             return throttle, 0
 
+
     def draw(self, map_scaled: Surface, zoom: float):
         if not DEBUG:
             return
@@ -119,6 +126,7 @@ class MinVerstappen(Bot):
             color=(0, 0, 0), width=2)
 
         # pygame.draw.lines(map_scaled, points=path, closed=False, color=(0, 0, 0))
+
 
 def waypoint_angle(pos, prev_pos, next_pos) -> float:
     return (prev_pos - pos).angle_to(next_pos - pos)
@@ -136,8 +144,9 @@ def max_entry_speed(distance: float, desire_speed: float) -> float:
 
 
 def approx_max_corner_speed(angle: float) -> float:
-    return float(np.interp(
-        x=angle,
-        xp=[0, 10, 15, 20, 50, 70, 90, 180],
-        fp=[1000, 550, 500, 260, MIN_SPEED, MIN_SPEED, MIN_SPEED, MIN_SPEED]
-    ))
+    return float(
+        np.interp(
+            x=angle,
+            xp=[0, 10, 15, 20, 50, 70, 90, 180],
+            fp=[1000, 550, 500, 260, MIN_SPEED, MIN_SPEED, MIN_SPEED, MIN_SPEED]
+        ))
