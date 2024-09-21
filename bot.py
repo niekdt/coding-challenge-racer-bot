@@ -1,18 +1,17 @@
 import logging
 import math
 import os
-
+import pygame
 import numpy as np
 
 from typing import Tuple
-
-import pygame
+from math import radians, degrees
 from pygame import Vector2, Color, Surface
 from itertools import cycle, islice, pairwise
 
 from constants import framerate
 from track import Track
-from .physics import max_speed, radius_from_turn_angle
+from .physics import approx_max_corner_speed, radius_from_turn_angle
 from ...bot import Bot
 from ...linear_math import Transform
 
@@ -80,10 +79,10 @@ class MinVerstappen(Bot):
                 zip([pos] + get_lines(), get_lines(), get_lines(1))
             ])
 
-        wp_radii = [radius_from_turn_angle(180 - a, self.track.track_width) for a in wp_angles]
+        wp_radii = [radius_from_turn_angle(radians(180 - a), self.track.track_width) for a in wp_angles]
 
-        wp_speeds = [approx_max_corner_speed(a) for a in wp_angles]
-        wp_speeds2 = [max_speed(r) for r in wp_radii]
+        wp_speeds = [interp_max_corner_speed(a) for a in wp_angles]
+        wp_speeds2 = [approx_max_corner_speed(r) for r in wp_radii]
         max_speeds = [max_entry_speed(d, s) for d, s in zip(wp_cum_distances, wp_speeds)]
         max_speeds2 = [max_entry_speed(d, s) for d, s in zip(wp_cum_distances, wp_speeds2)]
 
@@ -143,7 +142,7 @@ def max_entry_speed(distance: float, desire_speed: float) -> float:
     )
 
 
-def approx_max_corner_speed(angle: float) -> float:
+def interp_max_corner_speed(angle: float) -> float:
     return float(
         np.interp(
             x=angle,

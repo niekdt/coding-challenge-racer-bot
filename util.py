@@ -1,6 +1,7 @@
-from typing import Callable
-
 import numpy as np
+
+from math import pi, radians
+from typing import Callable
 
 from linear_math import Rotation
 
@@ -37,3 +38,7 @@ def copy_rot(rot: Rotation) -> Rotation:
         return Rotation.fromangle(0)
     else:
         return Rotation(rot.rows[0].x, rot.rows[1].x, rot.rows[0].y, rot.rows[1].y)
+
+
+def assert_radians(angle: float):
+    assert abs(angle) <= 2 * pi, 'use radians!'
