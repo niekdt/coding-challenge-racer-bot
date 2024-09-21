@@ -47,7 +47,7 @@ def update_velocity(velocity: Vector2, rot: Rotation = None) -> Vector2:
     return new_velocity
 
 
-def max_turning_angle(speed: float, drift_angle: float = 0) -> float:
+def max_turning_angle(speed: float, drift_angle: float) -> float:
     assert_radians(drift_angle)
 
     velocity = Vector2.from_polar((speed, 0))
@@ -65,10 +65,11 @@ def approx_max_corner_speed(radius: float, steer_angle: float = .02) -> float:
     return speed * 60
 
 
+@functools.lru_cache()
 def max_corner_speed(radius: float) -> float:
     """Max corner speed without drifting"""
     def objective(speed):
-        corner_angle = pi - max_turning_angle(speed, drift_angle=0)
+        corner_angle = pi - max_turning_angle(float(speed), drift_angle=0)
         actual_radius = speed / 60 * tan(corner_angle / 2)
         return (actual_radius - radius) ** 2
 
@@ -80,6 +81,7 @@ def max_corner_speed(radius: float) -> float:
 def max_corner_drift_speed(radius: float) -> float:
     """Max corner speed under optimal drift angle"""
     def objective(speed):
+        speed = float(speed)
         corner_angle = pi - max_turning_angle(speed, best_drift_angle(speed))
         actual_radius = speed / 60 * tan(corner_angle / 2)
         return (actual_radius - radius) ** 2
