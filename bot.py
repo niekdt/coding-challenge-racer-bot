@@ -51,7 +51,7 @@ class MinVerstappen(Bot):
 
 
     def compute_commands(self, next_waypoint: int, position: Transform, velocity: Vector2) -> Tuple:
-        def get_lines(offset=0, limit=20):
+        def get_lines(offset=0, limit=5):
             start = (next_waypoint + offset) % len(self.track.lines)
             return list(islice(cycle(self.track.lines), start, start + limit))
 
@@ -80,16 +80,14 @@ class MinVerstappen(Bot):
 
         wp_radii = [radius_from_turn_angle(radians(180 - a), self.track.track_width) for a in wp_angles]
 
-        wp_speeds = [interp_max_corner_speed(a) for a in wp_angles]
-        wp_speeds2 = [max_corner_speed(r) for r in wp_radii]
+        wp_speeds = [max_corner_speed(r) for r in wp_radii]
         max_speeds = [max_entry_speed(d, s) for d, s in zip(wp_cum_distances, wp_speeds)]
-        max_speeds2 = [max_entry_speed(d, s) for d, s in zip(wp_cum_distances, wp_speeds2)]
 
         rel_target = position.inverse() * target
         angle = rel_target.as_polar()[1]
 
-        target_velocity = min(max_speeds2)
-        logging.info(f'Target velocity: {target_velocity:.2f}, alt = {min(max_speeds2):.2f}')
+        target_velocity = min(max_speeds)
+        logging.info(f'Target velocity: {target_velocity:.2f}, alt = {min(max_speeds):.2f}')
         if speed < target_velocity:
             throttle = 1
         else:
