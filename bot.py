@@ -11,7 +11,7 @@ from itertools import cycle, islice, pairwise
 
 from constants import framerate
 from track import Track
-from .physics import approx_max_corner_speed, radius_from_turn_angle
+from .physics import approx_max_corner_speed, max_corner_speed, radius_from_turn_angle
 from ...bot import Bot
 from ...linear_math import Transform
 
@@ -82,7 +82,7 @@ class MinVerstappen(Bot):
         wp_radii = [radius_from_turn_angle(radians(180 - a), self.track.track_width) for a in wp_angles]
 
         wp_speeds = [interp_max_corner_speed(a) for a in wp_angles]
-        wp_speeds2 = [approx_max_corner_speed(r) for r in wp_radii]
+        wp_speeds2 = [max_corner_speed(r) for r in wp_radii]
         max_speeds = [max_entry_speed(d, s) for d, s in zip(wp_cum_distances, wp_speeds)]
         max_speeds2 = [max_entry_speed(d, s) for d, s in zip(wp_cum_distances, wp_speeds2)]
 

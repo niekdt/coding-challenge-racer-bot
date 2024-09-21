@@ -65,6 +65,7 @@ def approx_max_corner_speed(radius: float, steer_angle: float = .02) -> float:
 
 
 def max_corner_speed(radius: float) -> float:
+    """Max corner speed without drifting"""
     def objective(speed):
         corner_angle = pi - max_turning_angle(speed, drift_angle=0)
         actual_radius = speed / 60 * tan(corner_angle / 2)
@@ -75,6 +76,7 @@ def max_corner_speed(radius: float) -> float:
 
 
 def max_corner_drift_speed(radius: float) -> float:
+    """Max corner speed under optimal drift angle"""
     def objective(speed):
         corner_angle = pi - max_turning_angle(speed, best_drift_angle(speed))
         actual_radius = speed / 60 * tan(corner_angle / 2)
