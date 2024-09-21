@@ -1,5 +1,5 @@
-from .bot import SimpleBot
+from .bot import MinVerstappen
 
 
 def test_init():
-    SimpleBot(track=None)
+    MinVerstappen(track=None)
