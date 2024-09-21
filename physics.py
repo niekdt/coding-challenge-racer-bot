@@ -1,3 +1,4 @@
+import functools
 from math import isclose, pi, radians, sin, tan
 
 import numpy as np
@@ -75,6 +76,7 @@ def max_corner_speed(radius: float) -> float:
     return result.x
 
 
+@functools.lru_cache()
 def max_corner_drift_speed(radius: float) -> float:
     """Max corner speed under optimal drift angle"""
     def objective(speed):

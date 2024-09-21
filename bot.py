@@ -11,15 +11,14 @@ from itertools import cycle, islice, pairwise
 
 from constants import framerate
 from track import Track
-from .physics import approx_max_corner_speed, max_corner_speed, radius_from_turn_angle
+from .physics import max_corner_speed, radius_from_turn_angle
 from ...bot import Bot
 from ...linear_math import Transform
 
 FRAMERATE = framerate
 DT = 1 / FRAMERATE
-MAX_ACCELERATION = 5.0 / 3.0
+MAX_ACCELERATION = 2.0
 MAX_DECELERATION = -MAX_ACCELERATION
-MIN_SPEED = 150
 DEBUG = False
 
 if os.getenv('DEBUG'):
@@ -89,7 +88,7 @@ class MinVerstappen(Bot):
         rel_target = position.inverse() * target
         angle = rel_target.as_polar()[1]
 
-        target_velocity = 20 + min(max_speeds2)
+        target_velocity = min(max_speeds2)
         logging.info(f'Target velocity: {target_velocity:.2f}, alt = {min(max_speeds2):.2f}')
         if speed < target_velocity:
             throttle = 1
@@ -138,7 +137,7 @@ def turn_angle(angle: float) -> float:
 
 def max_entry_speed(distance: float, desire_speed: float) -> float:
     return 60 * math.sqrt(
-        (desire_speed / 60) ** 2 - 2 * MAX_DECELERATION / 60 * max(0.0, distance - 20)
+        (desire_speed / 60) ** 2 - 2 * MAX_DECELERATION / 60 * max(0.0, distance - 10)
     )
 
 
@@ -147,5 +146,5 @@ def interp_max_corner_speed(angle: float) -> float:
         np.interp(
             x=angle,
             xp=[0, 10, 15, 20, 50, 70, 90, 180],
-            fp=[1000, 550, 500, 260, MIN_SPEED, MIN_SPEED, MIN_SPEED, MIN_SPEED]
+            fp=[1000, 550, 500, 260, 150, 150, 150, 150]
         ))
