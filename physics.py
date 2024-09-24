@@ -5,7 +5,7 @@ import numpy as np
 from pygame import Vector2
 from scipy.optimize import minimize
 
-from .util import assert_radians, copy_rot
+from .util import assert_radians, copy_rot, eval_1d
 from ...linear_math import Rotation, Transform
 
 # constants
@@ -41,6 +41,12 @@ def update(position: Transform, velocity: Vector2, throttle: float, steering_com
     return new_position, velocity
 
 
+def delta_position(velocity: Vector2, rot: Rotation = None) -> Vector2:
+    position = Transform(M=copy_rot(rot), p=Vector2(0, 0))
+    new_position, new_velocity = update(position, velocity, 1, 1)
+    return new_position
+
+
 def update_velocity(velocity: Vector2, rot: Rotation = None) -> Vector2:
     position = Transform(M=copy_rot(rot), p=Vector2(0, 0))
     new_position, new_velocity = update(position, velocity, 1, 1)
@@ -51,7 +57,7 @@ def max_turning_angle(speed: float, drift_angle: float) -> float:
     assert_radians(drift_angle)
 
     velocity = Vector2()
-    velocity = velocity.from_polar((speed, 0))
+    velocity.from_polar((speed, 0))
     rot = Rotation.fromangle(-drift_angle)
     new_velocity = update_velocity(velocity, rot)
     angle = radians(velocity.angle_to(new_velocity))
@@ -68,15 +74,17 @@ def approx_max_corner_speed(radius: float, steer_angle: float = .02) -> float:
 
 @functools.lru_cache()
 def max_corner_speed(radius: float) -> float:
-    """Max corner speed without drifting"""
     def objective(speed):
-        corner_angle = pi - max_turning_angle(float(speed), drift_angle=0)
-        actual_radius = speed / 60 * tan(corner_angle / 2)
+        velocity = Vector2.from_polar((speed[0], 0))
+        pos = Vector2()
+        prev_pos = pos - velocity / 60
+        rot = Rotation.fromangle(-best_drift_angle(round(speed[0])))
+        new_pos = delta_position(velocity, rot)
+        actual_radius = compute_local_turning_radius(prev_pos, pos, new_pos.p)
         return (actual_radius - radius) ** 2
 
-    result = minimize(objective, np.array(150), bounds=((100.0, 999.0),))
-    return result.x
-
+    result = minimize(objective, np.array(300), bounds=((100.0, 750.0),))
+    return float(result.x[0])
 
 @functools.lru_cache()
 def max_corner_drift_speed(radius: float) -> float:
@@ -88,7 +96,7 @@ def max_corner_drift_speed(radius: float) -> float:
         return (actual_radius - radius) ** 2
 
     result = minimize(objective, np.array(150), bounds=((100.0, 999.0),))
-    return result.x
+    return float(result.x[0])
 
 
 # def max_corner_speed_for_drift(radius: float, drift_angle: float) -> float:
@@ -98,10 +106,11 @@ def max_corner_drift_speed(radius: float) -> float:
 #     return max_corner_speed(radius, steer_angle)
 
 
+@functools.lru_cache()
 def best_drift_angle(speed: float) -> float:
     assert 0 < speed < 1000
     result = minimize(lambda x: -max_turning_angle(speed, x), np.array(.49))
-    return result.x
+    return float(result.x[0])
 
 
 def radius_from_turn_angle(angle: float, track_width: float) -> float:
@@ -115,8 +124,30 @@ def radius_from_turn_angle(angle: float, track_width: float) -> float:
     return r + track_width / 2
 
 
+def compute_turning_radius(positions):
+    dx = np.diff(positions[:, 0])
+    dy = np.diff(positions[:, 1])
+    ds = np.sqrt(dx ** 2 + dy ** 2)
+
+    angles = np.abs(np.arctan2(dy, dx))
+    dtheta = np.diff(angles)
+
+    curvature = np.abs(dtheta) / ds[:-1]
+    turning_radius = 1 / curvature
+
+    assert len(turning_radius) == 1
+    return float(turning_radius[0])
+
+
+def compute_local_turning_radius(prev_pos: Vector2, pos: Vector2, next_pos: Vector2) -> float:
+    positions = np.array([tuple(prev_pos), tuple(pos), tuple(next_pos)])
+    return compute_turning_radius(positions)
+
+
 if __name__ == '__main__':
     import pandas as pd
+    import seaborn as sns
+    import matplotlib.pyplot as plt
 
     pd.options.display.width = None
     pd.options.display.max_rows = None
@@ -128,7 +159,21 @@ if __name__ == '__main__':
     #     print(f'Drift angle = {drift_angle}: turn angle = {max_turning_angle(speed=500, drift_angle=drift_angle)}')
     # exit()
 
-    r = radius_from_turn_angle(radians(180 - 20), 15)
+    speed_data2 = eval_1d(max_corner_speed2, np.linspace(50, 1000, 100), 'radius', 'speed')
+    speed_data1 = eval_1d(max_corner_speed, np.linspace(50, 1000, 100), 'radius', 'speed')
+    speed_data2['method'] = '2'
+    speed_data1['method'] = '1'
+
+    speed_data = pd.concat([speed_data1, speed_data2], ignore_index=True)
+
+    sns.lineplot(speed_data, x='radius', y='speed', hue='method')
+    plt.show()
+
+    exit()
+
+
+
+    r = radius_from_turn_angle(radians(180 - 20), 60)
     print('RADIUS: ', r)
     print(max_corner_drift_speed(r))
     exit()
