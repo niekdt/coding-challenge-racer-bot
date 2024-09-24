@@ -9,8 +9,8 @@ from math import radians, degrees
 from pygame import Vector2, Color, Surface
 from itertools import cycle, islice, pairwise
 
-from constants import framerate
-from track import Track
+from ...constants import framerate
+from ...track import Track
 from .physics import approx_max_corner_speed, max_corner_speed, radius_from_turn_angle
 from ...bot import Bot
 from ...linear_math import Transform

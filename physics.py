@@ -49,7 +49,8 @@ def update_velocity(velocity: Vector2, rot: Rotation = None) -> Vector2:
 def max_turning_angle(speed: float, drift_angle: float = 0) -> float:
     assert_radians(drift_angle)
 
-    velocity = Vector2.from_polar((speed, 0))
+    velocity = Vector2()
+    velocity = velocity.from_polar((speed, 0))
     rot = Rotation.fromangle(-drift_angle)
     new_velocity = update_velocity(velocity, rot)
     angle = radians(velocity.angle_to(new_velocity))
