@@ -3,7 +3,7 @@ import numpy as np
 from math import pi, radians
 from typing import Callable
 
-from linear_math import Rotation
+from ...linear_math import Rotation
 
 def eval_1d(fun: Callable, x_values, x_label: str = 'x', y_label: str = 'y'):
     import pandas as pd
