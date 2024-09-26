@@ -1,5 +1,6 @@
 import logging
 import os
+import random
 from itertools import pairwise
 from typing import Tuple
 
@@ -8,6 +9,7 @@ import pygame
 from pygame import Color, Surface, Vector2
 
 from .pathing import BsPath
+from .util import QUOTES
 from ...constants import framerate
 from ...track import Track
 from .physics import compute_local_turning_radius, max_corner_speed, max_entry_speed
@@ -37,6 +39,7 @@ class MinVerstappen(Bot):
         self.prev_speed = 0
         self.prev_target_speed = 0
         self.prev_velocity = Vector2()
+        self.quote = ''
 
         if track:
             self.path = BsPath(waypoints=self.track.lines, n_rounds=N_ROUNDS, res=RES)
@@ -64,6 +67,9 @@ class MinVerstappen(Bot):
         return Color('#FF4F00')
 
     def compute_commands(self, next_waypoint: int, position: Transform, velocity: Vector2) -> Tuple:
+        self.position = position
+        self.velocity = velocity
+
         logging.info(f'\n== New turn == (speed = {velocity.length():.0f})')
         pos = position.p
         speed = velocity.length()
@@ -110,8 +116,6 @@ class MinVerstappen(Bot):
         self.prev_target_speed = target_speed
         self.prev_pos = pos
         self.target = target
-        self.position = position
-        self.velocity = velocity
 
         # determine steering angle
         angle_target = self.path.get_node(cp=self.target_checkpoint + 12)
@@ -157,3 +161,11 @@ class MinVerstappen(Bot):
         pygame.draw.circle(
             map_scaled, center=self.path.get_node(self.target_checkpoint) * zoom,
             radius=10, color='#FF0000', width=3)
+
+        if random.randrange(5 * framerate) == 1:
+            if self.quote:
+                self.quote = ''
+            else:
+                self.quote = random.choice(QUOTES)
+        text_surface = self.font.render(self.quote, True, '#FFFFFF')
+        map_scaled.blit(text_surface, dest=self.position.p * zoom - Vector2(text_surface.get_width() / 2, 30))
