@@ -3,7 +3,7 @@ import math
 import pytest
 from pygame import Vector2
 
-from .bot import MinVerstappen
+from .bot import MinVerstappen, get_checkpoints
 from .physics import compute_local_turning_radius
 
 def test_init():
@@ -40,3 +40,18 @@ def test_compute_turn_radius_flip():
 
     r = compute_local_turning_radius(prev_pos, pos, next_pos)
     assert r > 100
+
+
+def test_get_checkpoints():
+    assert get_checkpoints(last=0, limit=1) == [0]
+    assert get_checkpoints(last=1, limit=1) == [1]
+    assert get_checkpoints(last=1, limit=2) == [1, 2]
+    assert get_checkpoints(last=1, limit=2, res=2) == [1, 2]
+    assert get_checkpoints(last=1, limit=2, res=2, n_trans=1) == [1, 2]
+    assert get_checkpoints(last=2, limit=2, res=2, n_trans=1) == [2, 1]
+    assert get_checkpoints(last=2, limit=5, res=2, n_trans=1) == [2, 1, 2, 1, 2]
+    assert get_checkpoints(last=4, limit=3, res=5, n_trans=1) == [4, 5, 1]
+    assert get_checkpoints(last=4, limit=5, res=5, n_trans=1) == [4, 5, 6, 2, 3]
+    assert get_checkpoints(last=4, limit=5, res=5, n_trans=2) == [4, 5, 6, 7, 3]
+    assert get_checkpoints(last=4, limit=5, res=5, n_trans=3) == [4, 5, 6, 7, 8]
+    assert get_checkpoints(last=4, limit=7, res=5, n_trans=3) == [4, 5, 6, 7, 8, 4, 5]

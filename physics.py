@@ -1,11 +1,11 @@
 import functools
-from math import isclose, pi, radians, sin, tan
+from math import isclose, pi, radians, sin, sqrt, tan
 
 import numpy as np
 from pygame import Vector2
 from scipy.optimize import minimize
 
-from .util import assert_radians, copy_rot, eval_1d
+from .util import assert_radians, copy_rot, eval_1d, eval_2d
 from ...linear_math import Rotation, Transform
 
 # constants
@@ -124,6 +124,10 @@ def radius_from_turn_angle(angle: float, track_width: float) -> float:
     return r + track_width / 2
 
 
+def max_entry_speed(distance: float, final_speed: float, max_deceleration: float) -> float:
+    return sqrt(final_speed ** 2 - 2 * max_deceleration * max(0.0, distance - 0))
+
+
 def compute_turning_radius(positions):
     dx = np.diff(positions[:, 0])
     dy = np.diff(positions[:, 1])
@@ -141,7 +145,22 @@ def compute_turning_radius(positions):
 
 def compute_local_turning_radius(prev_pos: Vector2, pos: Vector2, next_pos: Vector2) -> float:
     positions = np.array([tuple(prev_pos), tuple(pos), tuple(next_pos)])
-    return compute_turning_radius(positions)
+    return compute_turning_radius(positions)\
+
+
+def circumcircle_radius(prev_pos: Vector2, pos: Vector2, next_pos: Vector2) -> float:
+    a = pos.distance_to(next_pos)
+    b = prev_pos.distance_to(next_pos)
+    c = prev_pos.distance_to(pos)
+
+    # area using determinant method
+    K = .5 * np.abs(
+        prev_pos[0] * (pos[1] - next_pos[1]) + pos[0] * (next_pos[1] - prev_pos[1]) +
+        next_pos[0] * (prev_pos[1] - pos[1])
+    )
+
+    R = (a * b * c) / (4 * K)
+    return R
 
 
 if __name__ == '__main__':
@@ -159,7 +178,7 @@ if __name__ == '__main__':
     #     print(f'Drift angle = {drift_angle}: turn angle = {max_turning_angle(speed=500, drift_angle=drift_angle)}')
     # exit()
 
-    speed_data2 = eval_1d(max_corner_speed2, np.linspace(50, 1000, 100), 'radius', 'speed')
+    speed_data2 = eval_1d(max_corner_speed, np.linspace(50, 1000, 100), 'radius', 'speed')
     speed_data1 = eval_1d(max_corner_speed, np.linspace(50, 1000, 100), 'radius', 'speed')
     speed_data2['method'] = '2'
     speed_data1['method'] = '1'
@@ -169,18 +188,18 @@ if __name__ == '__main__':
     sns.lineplot(speed_data, x='radius', y='speed', hue='method')
     plt.show()
 
-    exit()
+    # exit()
 
 
 
-    r = radius_from_turn_angle(radians(180 - 20), 60)
-    print('RADIUS: ', r)
-    print(max_corner_drift_speed(r))
-    exit()
+    # r = radius_from_turn_angle(radians(180 - 20), 60)
+    # print('RADIUS: ', r)
+    # print(max_corner_drift_speed(r))
+    # exit()
 
-    print('Max angle, without drifting')
-    for speed in [1000, 500, 200, 100, 50]:
-        print(f'Speed = {speed}: turn angle = {max_turning_angle(speed=150)}')
+    # print('Max angle, without drifting')
+    # for speed in [1000, 500, 200, 100, 50]:
+    #     print(f'Speed = {speed}: turn angle = {max_turning_angle(speed=150)}')
 
     # print(radius_from_turn_angle(45, track_width=10))
 
@@ -191,8 +210,8 @@ if __name__ == '__main__':
     sns.set()
 
     # max angle from speed (no drifting)
-    angle_data = eval_1d(
-        max_turning_angle, np.linspace(0, 1000, 1000), 'speed', 'angle')
+    # angle_data = eval_1d(
+    #     max_turning_angle, np.linspace(0, 1000, 1000), 'speed', 'angle')
     # sns.lineplot(angle_data, x='speed', y='angle')
     # plt.show()
 
@@ -213,9 +232,9 @@ if __name__ == '__main__':
     # sns.lineplot(speed_data, x='radius', y='speed')
 
     # radius from turn angle
-    turn_data = eval_1d(
-        partial(radius_from_turn_angle, track_width=30),
-        np.linspace(0, radians(360), 1000), 'angle', 'radius')
+    # turn_data = eval_1d(
+    #     partial(radius_from_turn_angle, track_width=30),
+    #     np.linspace(0, radians(360), 1000), 'angle', 'radius')
     # ax = sns.lineplot(turn_data, x='angle', y='radius')
     # ax.set(ylim=(00, 1000))
 
@@ -236,6 +255,6 @@ if __name__ == '__main__':
         list(map(radians, range(0, 360, 10))),
         'speed', 'drift_angle', 'angle')
 
-    # sns.heatmap(angle_drift_data.pivot(index='speed', columns='drift_angle', values='angle'), annot=False, cmap='viridis')
+    sns.heatmap(angle_drift_data.pivot(index='speed', columns='drift_angle', values='angle'), annot=False, cmap='viridis')
 
     plt.show()
