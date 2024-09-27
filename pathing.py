@@ -5,6 +5,8 @@ import numpy as np
 from pygame import Vector2
 from scipy.interpolate import splev, splprep
 
+from .physics import MAX_DECELERATION, compute_local_turning_radius, max_corner_speed, \
+    max_entry_speed
 from ...constants import framerate
 
 class Path(ABC):
@@ -18,15 +20,40 @@ class Path(ABC):
         assert coords.shape[0] > 10
 
         self.coords = coords
-        # self.start_coords, self.cycle_coords = self._generate_rounds(coords)
+        nodes = self.get_nodes()
+
+        # distance to next checkpoint
+        self.distances = np.concatenate((np.linalg.norm(np.diff(coords, axis=0), axis=1), [0]))
+        self.cum_distances = np.cumsum(self.distances)
+        self.radii = np.pad(
+            np.array([
+                compute_local_turning_radius(prev_pos, cur_pos, next_pos)
+                for prev_pos, cur_pos, next_pos in
+                zip(nodes[0:], nodes[1:], nodes[2:])
+            ]),
+            pad_width=1, constant_values=1000
+        )
+        self.max_speeds = np.array([max_corner_speed(round(r)) for r in self.radii])
+
+        assert len(self.cum_distances) == len(self)
+        assert len(self.radii) == len(self)
+
+    def __len__(self):
+        return self.coords.shape[0]
 
     @abstractmethod
     def fit(self, waypoints: list[Vector2]):
         pass
 
-    def get_coords(self, cp: int, limit: int) -> np.ndarray:
+    def get_checkpoints(self, cp: int, limit: int) -> list[int]:
         if limit == 0:
-            return self.get_coords[cp:]
+            return list(range(cp, self.coords.shape[0]))
+        else:
+            return list(range(cp, cp + limit))
+
+    def get_coords(self, cp: int = 0, limit: int = 0) -> np.ndarray:
+        if limit == 0:
+            return self.coords[cp:]
         else:
             return self.coords[range(cp, min(cp + limit, self.coords.shape[0])), :]
 
@@ -36,6 +63,23 @@ class Path(ABC):
     def get_nodes(self, **kwargs) -> list[Vector2]:
         coords = self.get_coords(**kwargs)
         return [Vector2(float(x), float(y)) for x, y in zip(coords[:, 0], coords[:, 1])]
+
+    def get_distances(self, pos: Vector2, next_cp: int, limit: int):
+        return np.insert(
+            self.distances[next_cp:next_cp + limit], 0, pos.distance_to(self.get_node(next_cp)))
+
+    def get_total_distance(self):
+        return self.cum_distances[-1]
+
+    def get_remaining_distance(self, cp: int = 0):
+        return self.cum_distances[-1] - self.cum_distances[cp]
+
+    def get_entry_speeds(self, pos: Vector2, next_cp: int, limit: int):
+        cum_distances = self.get_distances(pos, next_cp, limit).cumsum()
+        return np.asarray([
+            max_entry_speed(d, s, MAX_DECELERATION)
+            for d, s in zip(cum_distances, self.max_speeds[next_cp:next_cp + limit])
+        ])
 
     def get_last_checkpoint(
         self, pos: Vector2, velocity: Vector2, cp: int = 0, limit: int = 0

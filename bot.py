@@ -1,7 +1,6 @@
 import logging
 import os
 import random
-from itertools import pairwise
 from typing import Tuple
 
 import numpy as np
@@ -9,19 +8,17 @@ import pygame
 from pygame import Color, Surface, Vector2
 
 from .pathing import BsPath
+from .physics import MAX_DECELERATION, max_entry_speed
 from .util import QUOTES
-from ...constants import framerate
-from ...track import Track
-from .physics import compute_local_turning_radius, max_corner_speed, max_entry_speed
 from ...bot import Bot
+from ...constants import framerate
 from ...linear_math import Transform
+from ...track import Track
 
 N_ROUNDS = 3
 DT = 1 / framerate
-MAX_ACCELERATION = 100
-MAX_DECELERATION = -110
 DEBUG = False
-RES = 2850
+RES = 2860
 
 if os.getenv('DEBUG'):
     DEBUG = True
@@ -82,29 +79,22 @@ class MinVerstappen(Bot):
         target_distance = pos.distance_to(target)
         logging.info(f'Target checkpoint: {self.target_checkpoint} (distance = {target_distance:.2f}')
 
-        targets = self.path.get_nodes(cp=self.target_checkpoint, limit=100)
+        checkpoints = range(self.target_checkpoint, min(len(self.path), self.target_checkpoint + 100))
 
-        wp_distances = np.array([x.distance_to(y) for (x, y) in pairwise([pos] + targets)])
+        wp_distances = self.path.get_distances(pos, self.target_checkpoint, 100)
         wp_cum_distances = wp_distances.cumsum()
 
-        wp_radii = np.array([
-            compute_local_turning_radius(prev_pos, cur_pos, next_pos)
-            for prev_pos, cur_pos, next_pos in
-            zip(targets[0:], targets[1:], targets[2:])
-        ])
-        logging.info(f'radii = {wp_radii[1:10]}')
-
-        wp_speeds = [max_corner_speed(round(r)) for r in wp_radii]
-        wp_speeds = np.convolve(wp_speeds, np.ones(5) / 5, mode='valid')
-        logging.info(f'speeds = {wp_speeds[1:10]}')
-        max_speeds = np.asarray([
+        cp_max_speeds = self.path.max_speeds[checkpoints]
+        cp_max_speeds = np.convolve(cp_max_speeds, np.ones(5) / 5, mode='valid')
+        logging.info(f'speeds = {cp_max_speeds[1:10]}')
+        cp_speeds = np.asarray([
             max_entry_speed(d, s, MAX_DECELERATION)
-            for d, s in zip(wp_cum_distances, wp_speeds)
+            for d, s in zip(wp_cum_distances, cp_max_speeds)
         ])
+        # cp_speeds = self.path.get_entry_speeds(pos, self.target_checkpoint, 100)
 
-        target_speed = max_speeds.min()
-        limit_checkpoint = max_speeds.argmin()
-        logging.info(f'Target velocity: {target_speed:.2f}, limited by {limit_checkpoint}th checkpoint ahead')
+        target_speed = cp_speeds.min()
+        logging.info(f'Target velocity: {target_speed:.2f}, limited by {cp_speeds.argmin()}th checkpoint ahead')
 
         if speed < target_speed:
             throttle = 1

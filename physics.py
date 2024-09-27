@@ -14,6 +14,8 @@ max_steering_speed = 3
 slipping_acceleration = 200
 slipping_ratio = 0.6
 dt = 1.0 / 60
+MAX_ACCELERATION = 100
+MAX_DECELERATION = -110
 
 def update(position: Transform, velocity: Vector2, throttle: float, steering_command: float):
     acceleration = position.M * Vector2(throttle * max_throttle, 0)
